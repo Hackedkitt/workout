@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adaptive Recomp & Workout Trainer</title>
+  <link rel="icon" type="image/png" href="https://img.icons8.com/fluency/192/dumbbell.png">
+  <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/192/dumbbell.png">
+  <meta name="theme-color" content="#0f172a">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 16px; max-width: 600px; margin: 0 auto; line-height: 1.5; }
+    header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    h1 { font-size: 1.5rem; margin-bottom: 4px; background: linear-gradient(90deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .date-display { color: var(--muted); font-size: 0.9rem; }
+
+    .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card { background: var(--card); padding: 12px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+    .stat-val { font-size: 1.4rem; font-weight: bold; color: var(--success); }
+    .stat-label { font-size: 0.75rem; color: var(--muted); }
+
+    .card { background: var(--card); padding: 18px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); }
+    .card h2 { font-size: 1.1rem; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+    .selector-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 12px; }
+    .focus-btn { flex: 1 1 45%; background: var(--bg); color: var(--muted); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center; }
+    .focus-btn.active { background: rgba(59, 130, 246, 0.2); color: var(--text); border-color: var(--accent); }
+    .focus-btn.full-width { flex: 1 1 100%; }
+
+    .exercise-box { background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid var(--accent); }
+    .exercise-title { font-weight: bold; font-size: 0.95rem; display: flex; justify-content: space-between; }
+    .exercise-cue { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+    .level-tag { font-size: 0.75rem; background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 2px 6px; border-radius: 4px; }
+
+    .progress-container { background: var(--border); height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 16px; }
+    .progress-bar { background: linear-gradient(90deg, var(--accent), var(--success)); height: 100%; width: 0%; transition: width 0.3s ease; }
+
+    .checklist-item { display: flex; align-items: center; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.03); margin-bottom: 8px; cursor: pointer; transition: background 0.2s; }
+    .checklist-item:hover { background: rgba(255,255,255,0.07); }
+    .checklist-item input[type="checkbox"] { width: 20px; height: 20px; margin-right: 14px; accent-color: var(--success); cursor: pointer; flex-shrink: 0; }
+    .checklist-item.completed span { text-decoration: line-through; color: var(--muted); }
+    .sub-text { font-size: 0.8rem; color: var(--muted); display: block; }
+
+    .timer-box { text-align: center; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px; }
+    .time-display { font-size: 2rem; font-weight: bold; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+    .btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    button.action-btn { background: var(--accent); color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    button.action-btn.secondary { background: var(--border); }
+
+    .level-controls { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>⚡ Adaptive Recomp Trainer</h1>
+    <div class="date-display" id="currentDate">Loading...</div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-val" id="userLevel">Lvl 1</div>
+      <div class="stat-label">⚡ Rank</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="streakCount">0</div>
+      <div class="stat-label">🔥 Day Streak</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="totalWorkouts">0</div>
+      <div class="stat-label">🏆 Total Days</div>
+    </div>
+  </div>
+
+  <!-- Adaptive Workout Generator -->
+  <div class="card">
+    <h2>
+      <span>🎯 Choose Today's Need</span>
+      <span class="level-tag" id="tierBadge">Tier 1: Foundation</span>
+    </h2>
+    <div class="selector-group">
+      <button class="focus-btn active" onclick="setFocus('fullbody')" id="btn-fullbody">💪 Full-Body</button>
+      <button class="focus-btn" onclick="setFocus('core')" id="btn-core">🔥 Core Shred</button>
+      <button class="focus-btn" onclick="setFocus('upper')" id="btn-upper">🦍 Upper Body</button>
+      <button class="focus-btn" onclick="setFocus('recovery')" id="btn-recovery">🧘 Active Rest</button>
+      <button class="focus-btn full-width" onclick="setFocus('height')" id="btn-height">🚀 Posture & Spine (Height)</button>
+    </div>
+
+    <div id="generatedExercises"></div>
+
+    <div class="level-controls">
+      <span>Auto-levels up every 3 completed days!</span>
+      <div>
+        <button class="action-btn secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="adjustLevelOffset(-1)">- Harder/Easier +</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Circuit Timer -->
+  <div class="card">
+    <h2>⏱️ Interval Timer</h2>
+    <div class="timer-box">
+      <div class="time-display" id="timerDisplay">00:40</div>
+      <div class="btn-group">
+        <button class="action-btn" onclick="startTimer(40)">40s Work</button>
+        <button class="action-btn" onclick="startTimer(60)">60s Hold</button>
+        <button class="action-btn secondary" onclick="startTimer(20)">20s Rest</button>
+        <button class="action-btn secondary" onclick="resetTimer()">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Checklist -->
+  <div class="card">
+    <h2>
+      <span>✅ Daily Progress</span>
+      <span id="progressText" style="font-size: 0.9rem; color: var(--muted);">0%</span>
+    </h2>
+    <div class="progress-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div id="taskList"></div>
+  </div>
+
+  <script>
+    const WORKOUT_DB = {
+      fullbody: {
+        1: [
+          { name: "Incline or Regular Push-ups", reps: "40s work / 20s rest", cue: "Keep core tight and elbows at 45 degrees." },
+          { name: "Bodyweight Squats", reps: "40s work / 20s rest", cue: "Sit back onto heels, chest proud." },
+          { name: "Doorframe or Table Rows", reps: "40s work / 20s rest", cue: "Squeeze shoulder blades together at the top." },
+          { name: "Alternating Reverse Lunges", reps: "40s work / 20s rest", cue: "Step back smoothly, keep front knee stable." },
+          { name: "Plank Hold", reps: "40s work / 20s rest", cue: "Squeeze glutes and abs; don't let hips sag." }
+        ],
+        2: [
+          { name: "Tempo Push-ups (3s Down)", reps: "45s work / 15s rest", cue: "Lower yourself over 3 full seconds, explode up." },
+          { name: "Jump Squats or Pause Squats", reps: "45s work / 15s rest", cue: "Pause 2 seconds at the bottom or add a small jump." },
+          { name: "Backpack Rows / Under-Table Rows", reps: "45s work / 15s rest", cue: "Wear or hold a book-filled backpack for extra resistance." },
+          { name: "Bulgarian Split Squats", reps: "45s work (switch halfway)", cue: "Insane leg & glute builder. Keep torso upright." },
+          { name: "Plank to Shoulder Taps", reps: "45s work / 15s rest", cue: "Keep hips completely still while tapping." }
+        ],
+        3: [
+          { name: "Decline or Diamond Push-ups", reps: "45s work / 15s rest", cue: "Feet elevated on bed/chair for upper chest & shoulders." },
+          { name: "Weighted Backpack Squats", reps: "45s work / 15s rest", cue: "Wear a loaded backpack and hit deep squats." },
+          { name: "Slow Negative Table Rows", reps: "45s work / 15s rest", cue: "Pull chest to edge, take 3 seconds to lower down." },
+          { name: "Jumping Lunges or Weighted Lunges", reps: "45s work / 15s rest", cue: "High intensity leg & fat burn." },
+          { name: "Hollow Body Hold to V-Ups", reps: "45s work / 15s rest", cue: "Press lower back flat into the floor." }
+        ]
+      },
+      core: {
+        1: [
+          { name: "High Knees / Fast March", reps: "40s work / 20s rest", cue: "Get heart rate up to maximize calorie burn." },
+          { name: "Dead Bugs", reps: "40s work / 20s rest", cue: "Keep lower back glued to the floor." },
+          { name: "Mountain Climbers", reps: "40s work / 20s rest", cue: "Drive knees toward chest in a push-up position." },
+          { name: "Glute Bridges", reps: "40s work / 20s rest", cue: "Supports lower back and pelvic posture." },
+          { name: "Forearm Plank", reps: "40s work / 20s rest", cue: "Breathe steadily while bracing your stomach." }
+        ],
+        2: [
+          { name: "Burpees (No Push-up)", reps: "45s work / 15s rest", cue: "Fast fat-burning conditioning." },
+          { name: "Bicycle Crunches", reps: "45s work / 15s rest", cue: "Rotate shoulder toward opposite knee, don't yank neck." },
+          { name: "Lying Leg Raises", reps: "45s work / 15s rest", cue: "Targets lower belly area; control the way down." },
+          { name: "Russian Twists", reps: "45s work / 15s rest", cue: "Tap floor on each side to work obliques." },
+          { name: "Up-Down Commando Planks", reps: "45s work / 15s rest", cue: "Move from forearm plank to high push-up plank." }
+        ],
+        3: [
+          { name: "Full Burpees", reps: "45s work / 15s rest", cue: "Chest to floor, jump at the top." },
+          { name: "Slow Lying Leg Raises (No Floor Touch)", reps: "45s work / 15s rest", cue: "Keep heels 2 inches off the ground at the bottom." },
+          { name: "Spiderman Mountain Climbers", reps: "45s work / 15s rest", cue: "Bring knee to outside elbow." },
+          { name: "V-Ups / Toe Touches", reps: "45s work / 15s rest", cue: "Explosive upper and lower ab contraction." },
+          { name: "Side Plank Hip Dips", reps: "45s work (switch halfway)", cue: "Carves the sides of your waist." }
+        ]
+      },
+      upper: {
+        1: [
+          { name: "Standard Push-ups", reps: "40s work / 20s rest", cue: "Chest to 2 inches above floor." },
+          { name: "Pike Push-ups", reps: "40s work / 20s rest", cue: "Hips high in a V-shape to target shoulders." },
+          { name: "Chair / Bed Tricep Dips", reps: "40s work / 20s rest", cue: "Lower until elbows are at 90 degrees." },
+          { name: "Backpack Bicep Curls", reps: "40s work / 20s rest", cue: "Grab the top handle of a book-filled backpack." },
+          { name: "Superman Back Extensions", reps: "40s work / 20s rest", cue: "Lie on stomach, lift chest and arms to build posture." }
+        ],
+        2: [
+          { name: "Wide-to-Narrow Push-ups", reps: "45s work / 15s rest", cue: "Alternate hand width each rep." },
+          { name: "Elevated Pike Push-ups", reps: "45s work / 15s rest", cue: "Builds boulder shoulders at home." },
+          { name: "Straight-Leg Chair Dips", reps: "45s work / 15s rest", cue: "Keep legs straight out for heavier tricep load." },
+          { name: "Backpack Hammer Curls", reps: "45s work / 15s rest", cue: "Hold backpack straps, squeeze biceps hard at the top." },
+          { name: "Under-Table Inverted Rows", reps: "45s work / 15s rest", cue: "Pull chest all the way up to the table edge." }
+        ],
+        3: [
+          { name: "Diamond Push-ups", reps: "45s work / 15s rest", cue: "Hands form a diamond; massive tricep & inner chest builder." },
+          { name: "Decline Push-ups (With Backpack)", reps: "45s work / 15s rest", cue: "Upper chest overload." },
+          { name: "Backpack Overhead Tricep Extensions", reps: "45s work / 15s rest", cue: "Keep elbows tucked by your ears." },
+          { name: "Single-Arm Backpack Curls", reps: "45s work (switch halfway)", cue: "Focus on strict form, zero swinging." },
+          { name: "Towel Doorframe Rows", reps: "45s work / 15s rest", cue: "Intense back & grip strength builder." }
+        ]
+      },
+      recovery: {
+        1: [
+          { name: "15-Minute Brisk Walk", reps: "Continuous", cue: "Gets blood flowing and burns fat without joint stress." },
+          { name: "Cat-Cow Spine Mobility", reps: "60 seconds", cue: "Loosens up tight lower and upper back." },
+          { name: "World's Greatest Stretch", reps: "60 seconds per side", cue: "Opens hips, hamstrings, and chest." },
+          { name: "Cobra Abdominal Stretch", reps: "60 seconds", cue: "Stretches sore abs and hip flexors." },
+          { name: "Deep Box Breathing", reps: "2 minutes", cue: "Lowers cortisol so your muscles recover faster." }
+        ],
+        2: [
+          { name: "20-Minute Brisk Walk", reps: "Continuous", cue: "Active fat burn on rest days." },
+          { name: "Deep Squat Hold (Prying)", reps: "60 seconds", cue: "Opens ankles and hips for better squats." },
+          { name: "Thread the Needle Shoulder Stretch", reps: "60 seconds per side", cue: "Relaxes upper back after push-ups." },
+          { name: "Couch Quad & Hip Flexor Stretch", reps: "60 seconds per side", cue: "Fixes tight legs from sitting at school." },
+          { name: "Child's Pose with Side Reach", reps: "90 seconds", cue: "Stretches lats and shoulders." }
+        ],
+        3: [
+          { name: "25-Minute Walk or Light Bike/Run", reps: "Zone 2 Pace", cue: "Easy pace where you can still talk easily." },
+          { name: "90/90 Hip Switches", reps: "90 seconds", cue: "Elite hip mobility for deeper lunges and squats." },
+          { name: "Dead Hang (If Bar Available)", reps: "60 seconds", cue: "Decompresses spine and stretches shoulders." },
+          { name: "Hamstring Forward Fold", reps: "60 seconds", cue: "Relaxes posterior chain." },
+          { name: "Wall Angels", reps: "15 slow reps", cue: "Fixes rounded shoulders and makes you stand taller." }
+        ]
+      },
+      height: {
+        1: [
+          { name: "Cobra Stretch to Child's Pose", reps: "60s slow reps", cue: "Stretches the abdominal wall and lengthens the spine." },
+          { name: "Wall Angels (Slides)", reps: "40s work / 20s rest", cue: "Stand flat against a wall, slide arms up/down to fix slouched shoulders." },
+          { name: "Downward Dog", reps: "60s hold", cue: "Push hips to the ceiling, stretching the hamstrings and lower back." },
+          { name: "Cat-Cow Flow", reps: "40s work / 20s rest", cue: "Arch back up, then dip stomach down to mobilize the spine." },
+          { name: "Lying Spinal Twists", reps: "40s work / 20s rest", cue: "Lie on back, drop knees to one side to release lower back tension." }
+        ],
+        2: [
+          { name: "Dead Hang or Doorframe Stretch", reps: "45s hold / 15s rest", cue: "Let gravity completely decompress your spine." },
+          { name: "Supermans", reps: "45s work / 15s rest", cue: "Lift chest and legs off floor. Builds posture muscles to stand taller." },
+          { name: "Bridge Pose", reps: "60s hold", cue: "Squeeze glutes, push hips up to stretch the front of your body." },
+          { name: "Bird-Dog", reps: "45s work / 15s rest", cue: "Opposite arm and leg reach. Keeps spine aligned and stable." },
+          { name: "Standing Forward Fold", reps: "60s hold", cue: "Let head hang heavy, reach for toes to decompress the lower back." }
+        ],
+        3: [
+          { name: "Extended Dead Hang", reps: "60s hold", cue: "Relax shoulders completely to maximize spinal decompression." },
+          { name: "Reverse Plank", reps: "45s work / 15s rest", cue: "Opens the chest and pulls shoulders back into perfect alignment." },
+          { name: "Upward to Downward Dog Flow", reps: "45s work / 15s rest", cue: "Smoothly transition between the two stretches." },
+          { name: "Deep Runner's Lunge", reps: "45s per leg", cue: "Stretches tight hip flexors that pull your body into a slouch." },
+          { name: "Prone Swimmers", reps: "45s work / 15s rest", cue: "Lie on stomach, flutter arms/legs to build an iron upper back." }
+        ]
+      }
+    };
+
+    const CHECKLIST_TASKS = [
+      { id: 'warmup', title: 'Phase 1: 5-Min Dynamic Warm-Up', sub: 'Arm circles, jumping jacks, hip openers, slow squats' },
+      { id: 'round1', title: 'Complete Circuit Round 1', sub: 'Perform all 5 exercises generated above' },
+      { id: 'round2', title: 'Complete Circuit Round 2', sub: 'Keep form strict; rest 1 min after finishing' },
+      { id: 'round3', title: 'Complete Circuit Round 3', sub: 'Push hard on the final set!' },
+      { id: 'cooldown', title: 'Phase 3: 3-Min Cool-Down Stretch', sub: 'Cobra stretch, child’s pose, quad stretch' },
+      { id: 'protein', title: 'Nutrition: High-Protein Meals', sub: 'Eggs, chicken, dal, paneer, curd, or milk with meals' },
+      { id: 'water', title: 'Hydration: 2.5L Water & No Sugary Drinks', sub: 'Cuts belly fat fastest' },
+      { id: 'sleep', title: 'Recovery: 8+ Hours Sleep', sub: 'Maximizes growth, height potential, and muscle repair' }
+    ];
+
+    let appData = {
+      lastDate: '',
+      currentFocus: 'fullbody',
+      levelOffset: 0,
+      checked: {},
+      history: {},
+      streak: 0,
+      totalCompletedDays: 0
+    };
+
+    function getTodayString() {
+      const now = new Date();
+      return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    }
+
+    function getEffectiveLevel() {
+      const autoLevel = Math.min(3, Math.floor(appData.totalCompletedDays / 3) + 1);
+      let finalLvl = autoLevel + (appData.levelOffset || 0);
+      if (finalLvl < 1) finalLvl = 1;
+      if (finalLvl > 3) finalLvl = 3;
+      return finalLvl;
+    }
+
+    function adjustLevelOffset() {
+      appData.levelOffset = ((appData.levelOffset || 0) + 1) % 3;
+      saveData();
+      renderWorkout();
+      updateStats();
+    }
+
+    function setFocus(focusKey) {
+      appData.currentFocus = focusKey;
+      document.querySelectorAll('.focus-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('btn-' + focusKey).classList.add('active');
+      saveData();
+      renderWorkout();
+    }
+
+    function renderWorkout() {
+      const lvl = getEffectiveLevel();
+      const focus = appData.currentFocus || 'fullbody';
+      const exercises = WORKOUT_DB[focus][lvl];
+      const tierNames = { 1: "Tier 1: Foundation", 2: "Tier 2: Intermediate", 3: "Tier 3: Beast Mode" };
+      document.getElementById('tierBadge').innerText = tierNames[lvl];
+
+      const container = document.getElementById('generatedExercises');
+      container.innerHTML = '';
+      exercises.forEach((ex, i) => {
+        const div = document.createElement('div');
+        div.className = 'exercise-box';
+        div.innerHTML = `
+          <div class="exercise-title">
+            <span>${i + 1}. ${ex.name}</span>
+            <span style="color: var(--accent); font-size: 0.8rem;">${ex.reps}</span>
+          </div>
+          <div class="exercise-cue">${ex.cue}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function loadData() {
+      const saved = localStorage.getItem('adaptiveFitnessTracker');
+      if (saved) appData = { ...appData, ...JSON.parse(saved) };
+
+      const today = getTodayString();
+      document.getElementById('currentDate').innerText = new Date().toDateString();
+
+      if (appData.lastDate !== today) {
+        appData.checked = {};
+        appData.lastDate = today;
+        saveData();
+      }
+
+      setFocus(appData.currentFocus || 'fullbody');
+      renderTasks();
+      updateStats();
+    }
+
+    function saveData() {
+      const today = getTodayString();
+      const completedCount = Object.values(appData.checked).filter(Boolean).length;
+      const percent = Math.round((completedCount / CHECKLIST_TASKS.length) * 100);
+      appData.history[today] = percent;
+      recalculateStats();
+      localStorage.setItem('adaptiveFitnessTracker', JSON.stringify(appData));
+    }
+
+    function recalculateStats() {
+      let total = 0;
+      Object.keys(appData.history).forEach(d => {
+        if (appData.history[d] >= 75) total++;
+      });
+      appData.totalCompletedDays = total;
+
+      let streak = 0;
+      let checkDate = new Date();
+      while (true) {
+        const dateStr = checkDate.getFullYear() + '-' + String(checkDate.getMonth() + 1).padStart(2, '0') + '-' + String(checkDate.getDate()).padStart(2, '0');
+        const score = appData.history[dateStr] || 0;
+        if (score >= 75) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          if (dateStr === getTodayString()) {
+            checkDate.setDate(checkDate.getDate() - 1);
+            continue;
+          }
+          break;
+        }
+      }
+      appData.streak = streak;
+    }
+
+    function toggleTask(id) {
+      appData.checked[id] = !appData.checked[id];
+      saveData();
+      renderTasks();
+      renderWorkout();
+      updateStats();
+    }
+
+    function renderTasks() {
+      const list = document.getElementById('taskList');
+      list.innerHTML = '';
+      let completedCount = 0;
+
+      CHECKLIST_TASKS.forEach(task => {
+        const isChecked = !!appData.checked[task.id];
+        if (isChecked) completedCount++;
+
+        const item = document.createElement('label');
+        item.className = 'checklist-item' + (isChecked ? ' completed' : '');
+        item.innerHTML = `
+          <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleTask('${task.id}')">
+          <div>
+            <span><strong>${task.title}</strong></span>
+            <span class="sub-text">${task.sub}</span>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      const percent = Math.round((completedCount / CHECKLIST_TASKS.length) * 100);
+      document.getElementById('progressBar').style.width = percent + '%';
+      document.getElementById('progressText').innerText = percent + '% Completed';
+    }
+
+    function updateStats() {
+      document.getElementById('userLevel').innerText = 'Lvl ' + getEffectiveLevel();
+      document.getElementById('streakCount').innerText = appData.streak;
+      document.getElementById('totalWorkouts').innerText = appData.totalCompletedDays;
+    }
+
+    // Timer
+    let timerInterval = null;
+    let timeLeft = 40;
+
+    function updateTimerDisplay() {
+      const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+      const secs = String(timeLeft % 60).padStart(2, '0');
+      document.getElementById('timerDisplay').innerText = `${mins}:${secs}`;
+    }
+
+    function startTimer(seconds) {
+      clearInterval(timerInterval);
+      timeLeft = seconds;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById('timerDisplay').innerText = "DONE! 🔥";
+        }
+      }, 1000);
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timeLeft = 40;
+      updateTimerDisplay();
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
